@@ -1,0 +1,21 @@
+{
+  "dependencies": {
+    "axios": "^1.7.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
+    "mysql": "^2.18.1",
+    "mysql2": "^3.11.5",
+    "node-schedule": "^2.1.1",
+    "uuid": "^10.0.0"
+  },
+  "type": "module",
+  "devDependencies": {
+    "nodemon": "^3.1.7",
+    "sucrase": "^3.35.0"
+  },
+  "scripts": {
+    "dev": "nodemon src/index.js"
+  }
+}
