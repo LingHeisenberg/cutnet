@@ -2,6 +2,9 @@ import e from "express"
 import dotenv from "dotenv"
 import cors from "cors"
 import router from "./src/routes/router.js"
+import { iniciarCron } from "./src/jobs/scheduler.js";
+
+iniciarCron();
 
 dotenv.config()
 

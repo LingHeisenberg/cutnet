@@ -1,17 +1,50 @@
 import e from "express";
-import { atualizarDadosMikrotikDbLocal, buscarDadosDoMikrotik, main, rastrearUsuarioNovo, updateMikrotik, updateUsuario, verificarParaBackUp, verificarToken } from "../services/usuario.service.js";
 
-const router = e.Router()
+import { buscarUsuariosMikrotik } from "../services/mikrotik.service.js";
+import { backupUsuarios } from "../services/backup.service.js";
+import { atualizarMikrotik } from "../services/mikrotik.service.js";
 
-//ROTAS DE MIKROTIK
+// import {
+//   updateUsuario
+// } from "../services/usuario.service.js";
 
-router.get("/backup", main)
-router.get("/atualizar/:id", updateMikrotik)
-router.get("/verificar", verificarParaBackUp)
-router.get("/motrarDadosMikrotik", buscarDadosDoMikrotik)
-router.get("/rastrear", rastrearUsuarioNovo)
-router.put("/usuario/:id", updateUsuario)
+import { verificarToken } from "../services/token.service.js";
 
-router.put("/atualizarMikrotik/:id", atualizarDadosMikrotikDbLocal)
+const router = e.Router();
+
+
+// 🔄 Buscar todos usuários de todos POPs
+router.get("/mikrotiks", async (req, res) => {
+  const dados = await buscarUsuariosMikrotik();
+  res.json(dados);
+});
+
+
+// 💾 Backup manual (todos POPs)
+// router.get("/backup", async (req, res) => {
+//   const dados = await buscarUsuariosMikrotik();
+//   await backupUsuarios(dados);
+//   res.json({ mensagem: "Backup feito com sucesso" });
+// });
+
+
+// 🔄 Atualizar usuário no MikroTik correto
+router.put("/mikrotik/:id", atualizarMikrotik);
+
+
+// 👤 Atualizar usuário no banco
+//router.put("/usuario/:id", updateUsuario);
+
+
+// 🔍 Manter funcionalidades antigas
+//router.get("/rastrear", rastrearUsuarioNovo);
+
+
+// 🔑 Verificar token
+router.get("/verificarToken/:id", async (req, res) => {
+  await verificarToken(req.params.id);
+  res.json({ mensagem: "Verificação concluída" });
+});
+
 
 export default router;
