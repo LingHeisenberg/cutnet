@@ -3,46 +3,62 @@ import axios from "axios";
 import consulta from "../database/conexao.js";
 import mikrotiks from "../config/mikrotik.js";
 
+// ========================================
+// 🔍 Verificar token do usuário
+// ========================================
 export async function verificarToken(id) {
   try {
-    // 🔍 Buscar usuário no banco
     const sql = "SELECT * FROM tabelausuarios WHERE idUsuario=?";
+
     const usuarioDb = (await consulta(sql, [id]))[0];
 
     if (!usuarioDb) {
-      console.log("Usuário não encontrado");
+      console.log("❌ Usuário não encontrado:", id);
       return;
     }
 
-    // 🔍 Encontrar Mikrotik (POP)
-    const mikrotik = mikrotiks.find(m => m.nome === usuarioDb.pop);
+    const mikrotik = mikrotiks.find(
+      (m) => m.nome === usuarioDb.pop
+    );
 
     if (!mikrotik) {
-      console.log("POP não encontrado");
+      console.log(
+        `❌ POP não encontrado para ${usuarioDb.name}`
+      );
       return;
     }
 
-    // 🔐 Verificar token
     jwt.verify(
       usuarioDb.token,
       process.env.CHAVESECRETA,
       async (erro) => {
         if (erro) {
-          await desativarUsuario(usuarioDb, mikrotik, id);
+          await desativarUsuario(
+            usuarioDb,
+            mikrotik,
+            id
+          );
         } else {
-          await ativarUsuario(usuarioDb, mikrotik, id);
+          await ativarUsuario(
+            usuarioDb,
+            mikrotik,
+            id
+          );
         }
       }
     );
 
   } catch (erro) {
-    console.log("Erro geral:", erro.message);
+    console.log("❌ Erro geral:", erro.message);
   }
 }
 
+// ========================================
 // 🔴 Desativar usuário
+// ========================================
 async function desativarUsuario(usuarioDb, mikrotik, id) {
   try {
+
     await axios.put(
       `${mikrotik.url}/${encodeURIComponent(usuarioDb.id)}`,
       {
@@ -62,16 +78,35 @@ async function desativarUsuario(usuarioDb, mikrotik, id) {
 
     await removerConexaoAtiva(usuarioDb, mikrotik);
 
-    console.log("🔴 TOKEN EXPIRADO → usuário desativado: ", usuarioDb.name);
+    console.log(
+      `🔴 TOKEN EXPIRADO → usuário desativado: ${usuarioDb.name}`
+    );
 
   } catch (erro) {
-    console.log("Erro ao desativar:", erro.message);
+
+    console.log("\n========================================");
+    console.log("❌ ERRO AO DESATIVAR USUÁRIO");
+    console.log("👤 Nome:", usuarioDb.name);
+    console.log("🆔 ID:", usuarioDb.idUsuario);
+    console.log("📡 POP:", usuarioDb.pop);
+
+    if (erro.response) {
+      console.log("📄 Status:", erro.response.status);
+      console.log("📄 Resposta:", erro.response.data);
+    } else {
+      console.log("📄 Erro:", erro.message);
+    }
+
+    console.log("========================================\n");
   }
 }
 
+// ========================================
 // 🟢 Ativar usuário
+// ========================================
 async function ativarUsuario(usuarioDb, mikrotik, id) {
   try {
+
     await axios.put(
       `${mikrotik.url}/${encodeURIComponent(usuarioDb.id)}`,
       {
@@ -89,41 +124,85 @@ async function ativarUsuario(usuarioDb, mikrotik, id) {
       [id]
     );
 
-    console.log("🟢 TOKEN válido → usuário ativo:", usuarioDb.name);
+    console.log(
+      `🟢 TOKEN válido → usuário ativo: ${usuarioDb.name}`
+    );
 
   } catch (erro) {
-    console.log("Erro ao ativar:", erro.message);
+
+    console.log("\n========================================");
+    console.log("❌ ERRO AO ATIVAR USUÁRIO");
+    console.log("👤 Nome:", usuarioDb.name);
+    console.log("🆔 ID:", usuarioDb.idUsuario);
+    console.log("📡 POP:", usuarioDb.pop);
+
+    if (erro.response) {
+      console.log("📄 Status:", erro.response.status);
+      console.log("📄 Resposta:", erro.response.data);
+    } else {
+      console.log("📄 Erro:", erro.message);
+    }
+
+    console.log("========================================\n");
   }
 }
 
+// ========================================
 // 🔌 Remover conexão ativa
+// ========================================
 async function removerConexaoAtiva(usuarioDb, mikrotik) {
   try {
-    const active = await axios.get(mikrotik.active, getAuth(mikrotik));
+
+    const active = await axios.get(
+      mikrotik.active,
+      getAuth(mikrotik)
+    );
 
     const secret = await axios.get(
       `${mikrotik.url}/${encodeURIComponent(usuarioDb.id)}`,
       getAuth(mikrotik)
     );
 
-    for (let item of active.data) {
+    for (const item of active.data) {
+
       if (item.name === secret.data.name) {
+
         await axios.delete(
-          `${mikrotik.active}/${encodeURIComponent(item[".id"])}`,
+          `${mikrotik.active}/${encodeURIComponent(
+            item[".id"]
+          )}`,
           getAuth(mikrotik)
         );
 
-        console.log("🔴 Usuário removido do active:", secret.data.name);
+        console.log(
+          `🔌 Usuário removido do active: ${secret.data.name}`
+        );
+
         break;
       }
     }
 
   } catch (erro) {
-    console.log("Erro ao remover conexão ativa:", erro.message);
+
+    console.log("\n========================================");
+    console.log("❌ ERRO AO REMOVER CONEXÃO ATIVA");
+    console.log("👤 Nome:", usuarioDb.name);
+    console.log("📡 POP:", usuarioDb.pop);
+
+    if (erro.response) {
+      console.log("📄 Status:", erro.response.status);
+      console.log("📄 Resposta:", erro.response.data);
+    } else {
+      console.log("📄 Erro:", erro.message);
+    }
+
+    console.log("========================================\n");
   }
 }
 
-// 🔐 Autenticação padrão
+// ========================================
+// 🔐 Autenticação MikroTik
+// ========================================
 function getAuth(mikrotik) {
   return {
     auth: {

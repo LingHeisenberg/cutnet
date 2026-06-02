@@ -2,80 +2,107 @@ import axios from "axios";
 import mikrotiks from "../config/mikrotik.js";
 import consulta from "../database/conexao.js";
 
-
-// 🔄 Buscar usuários de todos POPs
+// ========================================
+// 🔄 Buscar usuários de todos os POPs
+// ========================================
 export async function buscarUsuariosMikrotik() {
-
   const usuarios = [];
 
-  for (const mikrotik of mikrotiks) {
+  const popsOrdenados = [...mikrotiks].sort((a, b) =>
+    a.nome.localeCompare(b.nome, "pt")
+  );
+
+  for (const mikrotik of popsOrdenados) {
+    console.log("\n========================================");
+    console.log(`📡 POP: ${mikrotik.nome.toUpperCase()}`);
+    console.log("========================================");
 
     try {
-      console.log("🔄 Conectando ao POP:", mikrotik.nome);
-      console.log("URL:", mikrotik.url);
       const auth = Buffer.from(
         `${mikrotik.user}:${mikrotik.pass}`
       ).toString("base64");
 
+      console.log("🔄 Conectando...");
+      console.log("🌐 URL:", mikrotik.url);
+
       const response = await axios.get(mikrotik.url, {
         headers: {
           "Content-Type": "application/json",
-          "Accept": "application/json",
-          "Authorization": `Basic ${auth}`
+          Accept: "application/json",
+          Authorization: `Basic ${auth}`,
         },
-        timeout: 20000
+        timeout: 20000,
       });
 
-      const dados = response.data.map(user => ({
-        ...user,
-        pop: mikrotik.nome
-      }));
+      const dados = response.data
+        .map((user) => ({
+          ...user,
+          pop: mikrotik.nome,
+        }))
+        .sort((a, b) =>
+          (a.name || "").localeCompare(b.name || "", "pt")
+        );
 
       usuarios.push(...dados);
 
-      console.log("✅ POP sincronizado:", mikrotik.nome);
-      console.log("Usuarios encontrados:", dados.length);
+      console.log(`✅ POP sincronizado`);
+      console.log(`👥 Usuários encontrados: ${dados.length}`);
 
     } catch (erro) {
-
-      console.log("❌ Erro no POP:", mikrotik.nome);
+      console.log(`❌ Falha ao sincronizar POP: ${mikrotik.nome}`);
 
       if (erro.response) {
-        console.log("Status:", erro.response.status);
-        console.log("Resposta:", erro.response.data);
+        console.log("📄 Status:", erro.response.status);
+        console.log("📄 Resposta:", erro.response.data);
       } else {
-        console.log("Erro:", erro.message);
+        console.log("📄 Erro:", erro.message);
       }
-
     }
-
   }
 
-  console.log("TOTAL USUÁRIOS:", usuarios.length);
+  console.log("\n========================================");
+  console.log(`📊 TOTAL DE USUÁRIOS: ${usuarios.length}`);
+  console.log("========================================");
 
   return usuarios;
 }
 
-
-// 🔄 Atualizar usuário no MikroTik correto (MULTI-POP)
+// ========================================
+// 🔄 Atualizar usuário no MikroTik correto
+// ========================================
 export async function atualizarMikrotik(req, res) {
-
   const { id } = req.params;
 
-  try {
+  let usuario = null;
 
-    const sql = "SELECT * FROM tabelausuarios WHERE idUsuario=?";
-    const usuario = (await consulta(sql, [id]))[0];
+  try {
+    const sql =
+      "SELECT * FROM tabelausuarios WHERE idUsuario = ?";
+
+    usuario = (await consulta(sql, [id]))[0];
 
     if (!usuario) {
-      return res.status(404).json({ msg: "Usuário não encontrado" });
+      return res.status(404).json({
+        msg: "Usuário não encontrado",
+      });
     }
 
-    const mikrotik = mikrotiks.find(m => m.nome === usuario.pop);
+    const mikrotik = mikrotiks.find(
+      (m) => m.nome === usuario.pop
+    );
 
     if (!mikrotik) {
-      return res.status(404).json({ msg: "POP não encontrado" });
+      return res.status(404).json({
+        msg: "POP não encontrado",
+      });
     }
+
+    console.log("\n========================================");
+    console.log("🔄 Atualizando usuário");
+    console.log("👤 Nome:", usuario.name);
+    console.log("🆔 ID:", usuario.idUsuario);
+    console.log("📡 POP:", usuario.pop);
+    console.log("========================================");
 
     const response = await axios.put(
       `${mikrotik.url}/${usuario.id}`,
@@ -84,22 +111,43 @@ export async function atualizarMikrotik(req, res) {
         name: usuario.name,
         password: usuario.password,
         profile: usuario.profile,
-        service: usuario.service
+        service: usuario.service,
       },
       {
         auth: {
           username: mikrotik.user,
-          password: mikrotik.pass
-        }
+          password: mikrotik.pass,
+        },
       }
+    );
+
+    console.log(
+      `✅ Usuário ${usuario.name} atualizado com sucesso`
     );
 
     return res.json(response.data);
 
   } catch (erro) {
+    console.log("\n========================================");
+    console.log("❌ ERRO AO ATUALIZAR USUÁRIO");
 
-    console.log(erro);
-    return res.status(500).json({ erro: "Erro ao atualizar MikroTik" });
+    if (usuario) {
+      console.log("👤 Nome:", usuario.name);
+      console.log("🆔 ID:", usuario.idUsuario);
+      console.log("📡 POP:", usuario.pop);
+    }
 
+    if (erro.response) {
+      console.log("📄 Status:", erro.response.status);
+      console.log("📄 Resposta:", erro.response.data);
+    } else {
+      console.log("📄 Erro:", erro.message);
+    }
+
+    console.log("========================================");
+
+    return res.status(500).json({
+      erro: "Erro ao atualizar MikroTik",
+    });
   }
 }
