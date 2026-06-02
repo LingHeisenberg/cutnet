@@ -17,6 +17,14 @@ export async function verificarToken(id) {
       return;
     }
 
+    // Ignorar colaboradores
+    if (usuarioDb.tipoUsuario === "colab") {
+      console.log(
+        `⏭️ Colaborador ignorado: ${usuarioDb.name}`
+      );
+      return;
+    }
+
     const mikrotik = mikrotiks.find(
       (m) => m.nome === usuarioDb.pop
     );
@@ -52,7 +60,6 @@ export async function verificarToken(id) {
     console.log("❌ Erro geral:", erro.message);
   }
 }
-
 // ========================================
 // 🔴 Desativar usuário
 // ========================================
