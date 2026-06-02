@@ -1,61 +1,54 @@
-// import cron from "node-cron";
-// import { buscarUsuariosMikrotik } from "../services/mikrotik.service.js";
-// import { backupUsuarios, sincronizarRemocoes } from "../services/backup.service.js";
-// import { verificarToken } from "../services/token.service.js";
-// import consulta from "../database/conexao.js";
+import cron from "node-cron";
+import { buscarUsuariosMikrotik } from "../services/mikrotik.service.js";
+import { backupUsuarios } from "../services/backup.service.js";
 
-// let rodando = false;
+import { sincronizarRemocoes } from "../services/backup.service.js";
+import { verificarToken } from "../services/token.service.js";
+import consulta from "../database/conexao.js";
 
-// export function iniciarCron() {
+let rodando = false;
 
-//   cron.schedule("*/3 * * * *", async () => {
+export function iniciarCron() {
+  cron.schedule("*/3 * * * *", async () => {
+    if (rodando) {
+      console.log("⏳ Já está rodando...");
+      return;
+    }
 
-//     if (rodando) {
-//       console.log("⏳ Já está rodando...");
-//       return;
-//     }
+    rodando = true;
 
-//     rodando = true;
+    console.log("🚀 Iniciando backup...");
 
-//     console.log("🚀 Iniciando job...");
+    try {
+      // 🔹 Buscar usuários dos Mikrotiks
+      const usuarios = await buscarUsuariosMikrotik();
+      console.log(`📡 ${usuarios.length} usuários encontrados`);
 
-//     try {
+      // 🔹 Fazer backup no banco
+      await backupUsuarios(usuarios);
+      console.log("💾 Backup concluído");
 
-//       // 🔹 1. Buscar usuários dos Mikrotiks
-//       const usuarios = await buscarUsuariosMikrotik();
-//       console.log(`📡 ${usuarios.length} usuários encontrados`);
+      // ===== FUNCIONALIDADES DE CORTE DESATIVADAS =====
 
-//       // 🔹 2. Fazer backup no banco
-//       await backupUsuarios(usuarios);
-//       console.log("💾 Backup concluído");
-//       await sincronizarRemocoes(usuarios)
-//       if(sincronizarRemocoes){
-//         console.log("Sincronizacao Com remocao feita com Sucesso!")
-//       }else{
-//         console.log("Falha ao remover!")
-//       }
-//       // 🔹 3. Verificar tokens (OTIMIZADO)
-//       // const usuariosDb = await consulta("SELECT idUsuario FROM tabelausuarios");
+      await sincronizarRemocoes(usuarios);
 
-//       // console.log(`🔍 Verificando ${usuariosDb.length} usuários...`);
+      const usuariosDb = await consulta(
+        "SELECT idUsuario FROM tabelausuarios"
+      );
 
-//       // // await Promise.all(
-//       // //   usuariosDb.map(user => verificarToken(user.idUsuario))
-//       // // );
+      await Promise.all(
+        usuariosDb.map((user) => verificarToken(user.idUsuario))
+      );
 
-//       // console.log("🔐 Verificação de tokens concluída");
+      // ==============================================
 
-//     } catch (erro) {
+    } catch (erro) {
+      console.error("❌ Erro no backup:", erro.message);
+    } finally {
+      rodando = false;
+      console.log("⏱️ Job finalizado");
+    }
+  });
 
-//       console.log("❌ Erro no cron:", erro.message);
-
-//     } finally {
-
-//       rodando = false;
-
-//       console.log("⏱️ Job finalizado");
-//     }
-
-//   });
-
-// }
+  console.log("📅 Cron iniciado (somente backup)");
+}
